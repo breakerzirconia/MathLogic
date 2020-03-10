@@ -1,10 +1,10 @@
 name:                MathLogic
-version:             0.1.0.0
+version:             0.1.2.0
 github:              "githubuser/MathLogic"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2020 Author name here"
+author:              "Constantine Ter-Matevosian"
+maintainer:          "terkot1010@gmail.com"
+copyright:           "2020 Constantine Ter-Matevosian"
 
 extra-source-files:
 - README.md

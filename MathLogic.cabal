@@ -7,7 +7,7 @@ cabal-version: 1.12
 -- hash: 8cf6f084b6feecb4798b796137842fe414a01b6f1bcd666d6f4e7a1df5ddba5e
 
 name:           MathLogic
-version:        0.1.1.0
+version:        0.1.2.0
 description:    Please see the README on GitHub at <https://github.com/githubuser/MathLogic#readme>
 homepage:       https://github.com/githubuser/MathLogic#readme
 bug-reports:    https://github.com/githubuser/MathLogic/issues
