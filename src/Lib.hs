@@ -102,8 +102,8 @@ generateAllValues n = let prev = generateAllValues (n - 1)
                       in map (L:) prev ++ map (T:) prev
 
 isTautology :: PropFormula -> Bool
-isTautology p = let propVars = extractVariables p
-                    allValues = generateAllValues $ length propVars
-                in all (== T) 
-                 . map (retrieveValue p) 
-                 $ [zip propVars value | value <- allValues] 
+isTautology p = all (== T) 
+              . map (retrieveValue p) 
+              $ [zip propVars value | value <- generateAllValues $ length propVars] 
+  where
+    propVars = extractVariables p
