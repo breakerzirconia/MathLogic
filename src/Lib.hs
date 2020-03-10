@@ -29,22 +29,22 @@ extractVariables :: PropFormula -> [Char]
 extractVariables p = removeDuplicates $ extractVariables' p []
 
 extractVariables' :: PropFormula -> [Char] -> [Char]
-extractVariables' (PropVariable ch) acc =  ch : acc
-extractVariables' (Not           p) acc =  extractVariables' p acc
+extractVariables' (PropVariable ch) acc =   ch : acc
+extractVariables' (Not           p) acc =   extractVariables' p  acc
 extractVariables' (p1    :&     p2) acc =  (extractVariables' p1 acc) 
                                         ++ (extractVariables' p2 acc)
-                                        ++ acc
+                                        ++  acc
 extractVariables' (p1    :|     p2) acc =  (extractVariables' p1 acc) 
                                         ++ (extractVariables' p2 acc)
-                                        ++ acc
+                                        ++  acc
 extractVariables' (p1    :->    p2) acc =  (extractVariables' p1 acc) 
                                         ++ (extractVariables' p2 acc)
-                                        ++ acc
+                                        ++  acc
 
 removeDuplicates :: Eq a => [a] -> [a]
 removeDuplicates = foldl (\seen x -> if x `elem` seen
-                                      then seen
-                                      else seen ++ [x]) []
+                                     then seen
+                                     else seen ++ [x]) []
 
 data LogicValue = L | T deriving (Show, Eq)
 
