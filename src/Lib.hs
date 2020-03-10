@@ -7,6 +7,8 @@ module Lib
     , isTautology
     ) where
 
+import Data.Maybe
+
 data PropFormula
     = PropVariable    Char
     | Not             PropFormula
@@ -16,10 +18,10 @@ data PropFormula
 
 instance Show PropFormula where
     show (PropVariable x) = [x]
-    show (Not p)          = "!(" ++ show p  ++ ")"
-    show (p1 :& p2)       =  "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
-    show (p1 :| p2)       =  "(" ++ show p1 ++ " v "  ++ show p2 ++ ")"
-    show (p1 :-> p2)      =  "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
+    show (Not          p) = "!(" ++ show p  ++ ")"
+    show (p1    :&    p2) =  "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
+    show (p1    :|    p2) =  "(" ++ show p1 ++ " v "  ++ show p2 ++ ")"
+    show (p1    :->   p2) =  "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
 
 infixr 1 :->
 infixr 2 :|
@@ -65,8 +67,8 @@ T ->: L = L
 _ ->: _ = T
 
 infixr 1 ->:
-infixr 2 |:
-infixr 3 &:
+infixr 2  |:
+infixr 3  &:
 
 type PropVarMap = [(Char, LogicValue)]
 
@@ -79,8 +81,7 @@ lookUpValue ch ((pv,v):tail) = if pv == ch
 retrieveValue :: PropFormula -> PropVarMap -> LogicValue
 retrieveValue (PropVariable ch) list
     | lookUpValue ch list == Nothing = error "No such propositional variable could be found"
-    | otherwise = let Just res = lookUpValue ch list 
-                  in res
+    | otherwise = fromJust $ lookUpValue ch list 
 retrieveValue (Not     p) list = anti $ retrieveValue p list
 retrieveValue (p1 :&  p2) list = (retrieveValue p1 list)  &: (retrieveValue p2 list)
 retrieveValue (p1 :|  p2) list = (retrieveValue p1 list)  |: (retrieveValue p2 list)
@@ -89,8 +90,7 @@ retrieveValue (p1 :-> p2) list = (retrieveValue p1 list) ->: (retrieveValue p2 l
 transform :: PropFormula -> PropVarMap -> String
 transform (PropVariable ch) list
     | lookUpValue ch list == Nothing = error "No such propositional variable could be found"
-    | otherwise = let Just res = lookUpValue ch list 
-                  in show res
+    | otherwise = show . fromJust $ lookUpValue ch list
 transform (Not     p) list = "!(" ++ transform p  list ++ ")"
 transform (p1 :&  p2) list =  "(" ++ transform p1 list ++ " & "  ++ transform p2 list ++ ")"
 transform (p1 :|  p2) list =  "(" ++ transform p1 list ++ " v "  ++ transform p2 list ++ ")"
