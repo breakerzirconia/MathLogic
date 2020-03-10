@@ -16,6 +16,6 @@ main = do
   where
     x =   (PropVariable 'A') 
       :-> (PropVariable 'A')  :&  (PropVariable 'B') 
-      :-> ((PropVariable 'B') :-> (PropVariable 'C'))
+      :-> ((PropValue     L)  :-> (PropVariable 'C'))
       :-> (Not (PropVariable 'B')) 
-    map = [('A', L), ('B', L), ('C', T)]
+    map = [('A', T), ('B', L), ('C', T)]
