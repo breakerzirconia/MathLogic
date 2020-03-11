@@ -8,7 +8,7 @@ main = do
     print $ extractVariables x
     print $ map
     putStrLn $ transform x map
-    print . PropValue $ retrieveValue x map
+    print $ retrieveValue x map
     putStrLn $ "The given propositional formula is " 
              ++ if isTautology x
                 then "a tautology."
