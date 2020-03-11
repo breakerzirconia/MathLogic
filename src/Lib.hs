@@ -9,6 +9,12 @@ module Lib
 
 import Data.Maybe
 
+data LogicValue = L | T deriving Eq
+
+instance Show LogicValue where
+    show T = "1"
+    show L = "0"
+
 data PropFormula
     = PropVariable    Char
     | PropValue       LogicValue
@@ -19,7 +25,7 @@ data PropFormula
 
 instance Show PropFormula where
     show (PropVariable x) = [x]
-    show (PropValue    v) = if v == T then "1" else "0"
+    show (PropValue    v) = show v
     show (Not          p) = "!(" ++ show p  ++ ")"
     show (p1    :&    p2) =  "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
     show (p1    :|    p2) =  "(" ++ show p1 ++ " v "  ++ show p2 ++ ")"
@@ -28,8 +34,6 @@ instance Show PropFormula where
 infixr 1 :->
 infixl 2 :|
 infixl 3 :&
-
-data LogicValue = L | T deriving (Show, Eq)
 
 anti :: LogicValue -> LogicValue
 anti T = L
@@ -94,8 +98,8 @@ retrieveValue (p1    :->    p2) list = (retrieveValue p1 list) ->: (retrieveValu
 transform :: PropFormula -> PropVarMap -> String
 transform (PropVariable ch) list
     | lookUpValue ch list == Nothing = error "No such propositional variable could be found"
-    | otherwise = show . PropValue . fromJust $ lookUpValue ch list
-transform (PropValue     v) list = if v == T then "1" else "0"
+    | otherwise = show . fromJust $ lookUpValue ch list
+transform (PropValue     v) list = show v
 transform (Not           p) list = "!(" ++ transform p  list ++ ")"
 transform (p1    :&     p2) list =  "(" ++ transform p1 list ++ " & "  ++ transform p2 list ++ ")"
 transform (p1    :|     p2) list =  "(" ++ transform p1 list ++ " v "  ++ transform p2 list ++ ")"
