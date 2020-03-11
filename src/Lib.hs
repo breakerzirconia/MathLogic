@@ -26,8 +26,8 @@ instance Show PropFormula where
     show (p1    :->   p2) =  "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
 
 infixr 1 :->
-infixr 2 :|
-infixr 3 :&
+infixl 2 :|
+infixl 3 :&
 
 data LogicValue = L | T deriving (Show, Eq)
 
@@ -48,8 +48,8 @@ T ->: L = L
 _ ->: _ = T
 
 infixr 1 ->:
-infixr 2  |:
-infixr 3  &:
+infixl 2  |:
+infixl 3  &:
 
 extractVariables :: PropFormula -> [Char]
 extractVariables p = removeDuplicates $ extractVariables' p []
