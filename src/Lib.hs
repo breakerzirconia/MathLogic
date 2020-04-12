@@ -1,7 +1,7 @@
 module Lib 
     ( PropFormula (..)
     , LogicValue (..)
-    , extractVariables 
+    , extractStrings 
     , retrieveValue
     , transform
     , isTautology
@@ -18,7 +18,7 @@ instance Show LogicValue where
     show L = "0"
 
 data PropFormula
-    = PropVariable    Char
+    = PropString      String
     | PropValue       LogicValue
     | Not             PropFormula
     | PropFormula :&  PropFormula
@@ -26,12 +26,12 @@ data PropFormula
     | PropFormula :-> PropFormula
 
 instance Show PropFormula where
-    show (PropVariable x) = [x]
+    show (PropString   s) = s
     show (PropValue    v) = show v
-    show (Not          p) = "!(" ++ show p  ++ ")"
-    show (p1    :&    p2) =  "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
-    show (p1    :|    p2) =  "(" ++ show p1 ++ " v "  ++ show p2 ++ ")"
-    show (p1    :->   p2) =  "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
+    show (Not          p) = "!" ++ show p
+    show (p1    :&    p2) = "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
+    show (p1    :|    p2) = "(" ++ show p1 ++ " v "  ++ show p2 ++ ")"
+    show (p1    :->   p2) = "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
 
 infixr 1 :->
 infixl 2 :|
@@ -57,35 +57,36 @@ infixr 1 ->:
 infixl 2  |:
 infixl 3  &:
 
-extractVariables :: PropFormula -> [Char]
-extractVariables p = nub $ extractVariables' p []
+extractStrings :: PropFormula -> [String]
+extractStrings p = nub $ extractStrings' p []
 
-extractVariables' :: PropFormula -> [Char] -> [Char]
-extractVariables' (PropVariable ch) acc =   ch : acc
-extractVariables' (PropValue     v) acc =   acc
-extractVariables' (Not           p) acc =   extractVariables' p  acc
-extractVariables' (p1    :&     p2) acc =  (extractVariables' p1 acc) 
-                                        ++ (extractVariables' p2 acc)
+extractStrings' :: PropFormula -> [String] -> [String]
+extractStrings' (PropString    s) acc =   s : acc
+extractStrings' (PropValue     v) acc =   acc
+extractStrings' (Not           p) acc =   extractStrings' p  acc
+extractStrings' (p1    :&     p2) acc =  (extractStrings' p1 acc) 
+                                        ++ (extractStrings' p2 acc)
                                         ++  acc
-extractVariables' (p1    :|     p2) acc =  (extractVariables' p1 acc) 
-                                        ++ (extractVariables' p2 acc)
+extractStrings' (p1    :|     p2) acc =  (extractStrings' p1 acc) 
+                                        ++ (extractStrings' p2 acc)
                                         ++  acc
-extractVariables' (p1    :->    p2) acc =  (extractVariables' p1 acc) 
-                                        ++ (extractVariables' p2 acc)
+extractStrings' (p1    :->    p2) acc =  (extractStrings' p1 acc) 
+                                        ++ (extractStrings' p2 acc)
                                         ++  acc
 
-type PropVarMap = [(Char, LogicValue)]
+type PropVarMap = [(String, LogicValue)]
 
-lookUpValue :: Char -> PropVarMap -> Maybe LogicValue
-lookUpValue ch []            = Nothing
-lookUpValue ch ((pv,v):tail) = if pv == ch 
-                               then Just v 
-                               else lookUpValue ch tail
+lookUpValue :: String -> PropVarMap -> Maybe LogicValue
+lookUpValue s []            = Nothing
+lookUpValue s ((pv,v):tail) = if pv == s 
+                              then Just v 
+                              else lookUpValue s tail
 
 retrieveValue :: PropFormula -> PropVarMap -> LogicValue
-retrieveValue (PropVariable ch) list
-    | lookUpValue ch list == Nothing = error "No such propositional variable could be found"
-    | otherwise = fromJust $ lookUpValue ch list
+retrieveValue (PropString ch) list = case lookUpValue ch list of
+    Nothing -> error "No such propositional string could be found"
+    Just res -> res
+
 retrieveValue (PropValue     v) list = v
 retrieveValue (Not           p) list = anti $ retrieveValue p list
 retrieveValue (p1    :&     p2) list = (retrieveValue p1 list)  &: (retrieveValue p2 list)
@@ -93,9 +94,10 @@ retrieveValue (p1    :|     p2) list = (retrieveValue p1 list)  |: (retrieveValu
 retrieveValue (p1    :->    p2) list = (retrieveValue p1 list) ->: (retrieveValue p2 list)
 
 transform :: PropFormula -> PropVarMap -> String
-transform (PropVariable ch) list
-    | lookUpValue ch list == Nothing = error "No such propositional variable could be found"
-    | otherwise = show . fromJust $ lookUpValue ch list
+transform (PropString ch) list = case lookUpValue ch list of
+    Nothing -> error "No such propositional string could be found"
+    Just res -> show res
+
 transform (PropValue     v) list = show v
 transform (Not           p) list = "!(" ++ transform p  list ++ ")"
 transform (p1    :&     p2) list =  "(" ++ transform p1 list ++ " & "  ++ transform p2 list ++ ")"
@@ -110,13 +112,13 @@ generateAllValues n = let prev = generateAllValues (n - 1)
 isTautology :: PropFormula -> Bool
 isTautology p = all (== T) 
               . map (retrieveValue p) 
-              $ [zip propVars value | value <- generateAllValues $ length propVars] 
+              $ [zip propString value | value <- generateAllValues $ length propString] 
   where
-    propVars = extractVariables p
+    propString = extractStrings p
 
 isContradictory :: PropFormula -> Bool
 isContradictory p = all (== L) 
               . map (retrieveValue p) 
-              $ [zip propVars value | value <- generateAllValues $ length propVars] 
+              $ [zip propString value | value <- generateAllValues $ length propString] 
   where
-    propVars = extractVariables p
+    propString = extractStrings p

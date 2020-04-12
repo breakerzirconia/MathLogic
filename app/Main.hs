@@ -5,7 +5,7 @@ import Lib
 main :: IO ()
 main = do
     print $ x
-    print $ extractVariables x
+    print $ extractStrings x
     print $ map
     putStrLn $ transform x map
     print $ retrieveValue x map
@@ -14,8 +14,8 @@ main = do
                 then "a tautology."
                 else "not a tautology."
   where
-    x =   (PropVariable 'A') 
-      :-> (PropVariable 'A')  :&  (PropVariable 'B') 
-      :-> ((PropValue     L)  :-> (PropVariable 'C'))
-      :-> (Not (PropVariable 'B')) 
-    map = [('A', T), ('B', L), ('C', T)]
+    x =   (PropString   "A") 
+      :-> (PropString   "A")  :&  (PropString "B") 
+      :-> ((PropValue     L)  :-> (PropString "C"))
+      :-> (Not (PropString "B")) 
+    map = [("A", T), ("B", L), ("C", T)]

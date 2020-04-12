@@ -1,7 +1,8 @@
-module Main where
+module Parser where
 
 import Control.Applicative
 import Data.Char
+import Lib
 
 newtype Parser a = Parser { runParser :: String -> [(a, String)] }
 -- The return type of a function wrapped inside a Parser data type is not `Maybe`,
@@ -87,30 +88,16 @@ rightAssociative f item separator = do
 
 -- =========================================== --
 
-data Tree
-    = Var String
-    | Not Tree
-    | Conj Tree Tree
-    | Disj Tree Tree
-    | Impl Tree Tree
+implication :: Parser PropFormula
+implication = rightAssociative (:->) disjunction (string "->")
 
-instance Show Tree where
-    show (Var v)    = v
-    show (Not t)    = "(!"   ++ show t ++ ")"
-    show (Conj x y) = "(&,"  ++ show x ++ "," ++ show y ++ ")"
-    show (Disj x y) = "(|,"  ++ show x ++ "," ++ show y ++ ")"
-    show (Impl x y) = "(->," ++ show x ++ "," ++ show y ++ ")"
+disjunction :: Parser PropFormula
+disjunction = leftAssociative (:|) conjunction (character '|')
 
-implication :: Parser Tree
-implication = rightAssociative Impl disjunction (string "->")
+conjunction :: Parser PropFormula
+conjunction = leftAssociative (:&) negation (character '&')
 
-disjunction :: Parser Tree
-disjunction = leftAssociative Disj conjunction (character '|')
-
-conjunction :: Parser Tree
-conjunction = leftAssociative Conj negation (character '&')
-
-negation :: Parser Tree
+negation :: Parser PropFormula
 negation = do
         character '!'
         y <- negation
@@ -122,15 +109,15 @@ negation = do
         character ')'
         return x 
 
-variable :: Parser Tree
+variable :: Parser PropFormula
 variable = do 
     x  <- upper
     xs <- many restVariable
-    return . Var $ x:xs
+    return . PropString $ x:xs
 
 -- =========================================== --
 
-parse :: String -> Tree
+parse :: String -> PropFormula
 parse given 
     = fst 
     . head 
