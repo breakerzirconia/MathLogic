@@ -27,7 +27,9 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      MathLogicEssentials
+      Parser
+      Proof
   other-modules:
       Paths_MathLogic
   hs-source-dirs:

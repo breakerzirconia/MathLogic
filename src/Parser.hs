@@ -2,7 +2,7 @@ module Parser where
 
 import Control.Applicative
 import Data.Char
-import Lib
+import MathLogicEssentials
 
 newtype Parser a = Parser { runParser :: String -> [(a, String)] }
 -- The return type of a function wrapped inside a Parser data type is not `Maybe`,

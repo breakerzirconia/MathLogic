@@ -1,4 +1,4 @@
-module Lib 
+module MathLogicEssentials 
     ( PropFormula (..)
     , LogicValue (..)
     , extractStrings 

@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import MathLogicEssentials
 
 main :: IO ()
 main = do

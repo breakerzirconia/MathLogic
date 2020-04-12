@@ -1,5 +1,5 @@
 import Test.Hspec
-import Lib
+import MathLogicEssentials
 
 main :: IO ()
 main = hspec $ do
