@@ -1,5 +1,5 @@
-import Lib
 import Test.Hspec
+import Lib
 
 main :: IO ()
 main = hspec $ do
@@ -39,3 +39,6 @@ main = hspec $ do
         it "testing axiom #10: !!a -> a" $ do
             isTautology (Not (Not (PropVariable 'A'))
                      :-> (PropVariable 'A')) `shouldBe` True
+    describe "Contradictory statements" $ do
+        it "testing contradictory statement #1: a & !a" $ do
+            isContradictory ((PropVariable 'A') :& Not (PropVariable 'A')) `shouldBe` True

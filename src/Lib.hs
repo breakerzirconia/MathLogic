@@ -5,9 +5,11 @@ module Lib
     , retrieveValue
     , transform
     , isTautology
+    , isContradictory
     ) where
 
 import Data.Maybe
+import Data.List
 
 data LogicValue = L | T deriving Eq
 
@@ -56,7 +58,7 @@ infixl 2  |:
 infixl 3  &:
 
 extractVariables :: PropFormula -> [Char]
-extractVariables p = removeDuplicates $ extractVariables' p []
+extractVariables p = nub $ extractVariables' p []
 
 extractVariables' :: PropFormula -> [Char] -> [Char]
 extractVariables' (PropVariable ch) acc =   ch : acc
@@ -71,11 +73,6 @@ extractVariables' (p1    :|     p2) acc =  (extractVariables' p1 acc)
 extractVariables' (p1    :->    p2) acc =  (extractVariables' p1 acc) 
                                         ++ (extractVariables' p2 acc)
                                         ++  acc
-
-removeDuplicates :: Eq a => [a] -> [a]
-removeDuplicates = foldl (\seen x -> if x `elem` seen
-                                     then seen
-                                     else seen ++ [x]) []
 
 type PropVarMap = [(Char, LogicValue)]
 
@@ -112,6 +109,13 @@ generateAllValues n = let prev = generateAllValues (n - 1)
 
 isTautology :: PropFormula -> Bool
 isTautology p = all (== T) 
+              . map (retrieveValue p) 
+              $ [zip propVars value | value <- generateAllValues $ length propVars] 
+  where
+    propVars = extractVariables p
+
+isContradictory :: PropFormula -> Bool
+isContradictory p = all (== L) 
               . map (retrieveValue p) 
               $ [zip propVars value | value <- generateAllValues $ length propVars] 
   where
