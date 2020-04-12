@@ -83,7 +83,7 @@ lookUpValue s ((pv,v):tail) = if pv == s
                               else lookUpValue s tail
 
 retrieveValue :: PropFormula -> PropVarMap -> LogicValue
-retrieveValue (PropString ch) list = case lookUpValue ch list of
+retrieveValue (PropString s) list = case lookUpValue s list of
     Nothing -> error "No such propositional string could be found"
     Just res -> res
 
@@ -94,7 +94,7 @@ retrieveValue (p1    :|     p2) list = (retrieveValue p1 list)  |: (retrieveValu
 retrieveValue (p1    :->    p2) list = (retrieveValue p1 list) ->: (retrieveValue p2 list)
 
 transform :: PropFormula -> PropVarMap -> String
-transform (PropString ch) list = case lookUpValue ch list of
+transform (PropString s) list = case lookUpValue s list of
     Nothing -> error "No such propositional string could be found"
     Just res -> show res
 
