@@ -16,10 +16,13 @@ instance Show Mode where
     show (ModusPonens a b) = "M.P. " ++ show a ++ ", " ++ show b
     show (Hypothesis h) = "Hypothesis " ++ show h
 
-newtype Row = Row { getRow :: (Int, Mode, PropFormula) }
+data Row = Row { getPosition :: Int
+               , getMode :: Mode
+               , getPropFormula :: PropFormula 
+               }
 
 instance Show Row where
-    show (Row (i, m, p)) = "[" ++ show i ++ ". " ++ show m ++ "] " ++ show p
+    show (Row i m p) = "[" ++ show i ++ ". " ++ show m ++ "] " ++ show p
 
 minimize
     :: [PropFormula] 
@@ -47,10 +50,10 @@ findMP statement reverseProof = findMP' statement $ (,) <$> reverseProof <*> rev
 construct :: [PropFormula] -> [(Int, PropFormula)] -> [Row] -> [Row]
 construct _ [] buffer = reverse buffer
 construct hypotheses ((n,cur):rest) buffer
-    | fst ax = construct hypotheses rest ((Row (n, AxiomSchema (snd ax), cur)):buffer)
-    | ind /= Nothing = construct hypotheses rest ((Row (n, Hypothesis (fromJust ind + 1), cur)):buffer)
+    | fst ax = construct hypotheses rest ((Row n (AxiomSchema (snd ax)) cur):buffer)
+    | ind /= Nothing = construct hypotheses rest ((Row n (Hypothesis (fromJust ind + 1)) cur):buffer)
     | otherwise = let (i1, i2) = findMPIndices cur buffer
-                  in construct hypotheses rest ((Row (n, ModusPonens i1 i2, cur)):buffer)
+                  in construct hypotheses rest ((Row n (ModusPonens i1 i2) cur):buffer)
   where 
     ax = isAxiom cur
     ind = findIndex (==cur) hypotheses
@@ -59,8 +62,8 @@ findMPIndices :: PropFormula -> [Row] -> (Int, Int)
 findMPIndices statement buffer = findMPIndices' statement $ (,) <$> buffer <*> buffer
   where
     findMPIndices' b [] = (0, 0)
-    findMPIndices' b ((r1, r2):rest) = let Row (n1, _, ab) = r1
-                                           Row (n2, _, a) = r2
+    findMPIndices' b ((r1, r2):rest) = let Row n1 _ ab = r1
+                                           Row n2 _ a = r2
                                        in if isOuterImplication ab
                                           then let (a' :-> b') = ab
                                                in if a == a'
