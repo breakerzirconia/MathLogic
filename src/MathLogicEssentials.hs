@@ -6,6 +6,7 @@ module MathLogicEssentials
     , transform
     , isTautology
     , isContradictory
+    , isOuterImplication
     ) where
 
 import Data.Maybe
@@ -24,6 +25,7 @@ data PropFormula
     | PropFormula :&  PropFormula
     | PropFormula :|  PropFormula
     | PropFormula :-> PropFormula
+    deriving Eq
 
 instance Show PropFormula where
     show (PropString   s) = s
@@ -122,3 +124,7 @@ isContradictory p = all (== L)
               $ [zip propString value | value <- generateAllValues $ length propString] 
   where
     propString = extractStrings p
+
+isOuterImplication :: PropFormula -> Bool
+isOuterImplication (_ :-> _) = True
+isOuterImplication _ = False

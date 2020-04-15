@@ -1,21 +1,32 @@
 module Main where
 
-import MathLogicEssentials
+import Data.List.Split
+import System.IO
+import Parser
+import Proof
+
+-- readLines :: IO [String]
+-- readLines = do 
+--     eof <- isEOF
+--     if eof 
+--     then return []
+--     else do
+--         line <- getLine
+--         lines <- readLines
+--         return $ line : lines
 
 main :: IO ()
 main = do
-    print $ x
-    print $ extractStrings x
-    print $ map
-    putStrLn $ transform x map
-    print $ retrieveValue x map
-    putStrLn $ "The given propositional formula is " 
-             ++ if isTautology x
-                then "a tautology."
-                else "not a tautology."
-  where
-    x =   (PropString   "A") 
-      :-> (PropString   "A")  :&  (PropString "B") 
-      :-> ((PropValue     L)  :-> (PropString "C"))
-      :-> (Not (PropString "B")) 
-    map = [("A", T), ("B", L), ("C", T)]
+    handle <- openFile "in.txt" ReadMode
+    everything <- hGetContents handle
+    -- everything <- getContents
+    let (rawInitial:rawProof) = lines everything
+        proof = fmap parse rawProof
+        toProve = splitOn "|-" rawInitial
+        statement = parse . head . tail $ toProve
+        rawHypotheses = splitOn "," $ head toProve
+        hypotheses = if null (head rawHypotheses) then [] else fmap parse rawHypotheses 
+    if isCorrect statement hypotheses proof [] 
+    then putStrLn $ performMinProof statement hypotheses proof
+    else putStrLn "Proof is incorrect" 
+    hClose handle
