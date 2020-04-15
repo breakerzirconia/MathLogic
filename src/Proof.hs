@@ -1,6 +1,5 @@
 module Proof 
     ( isAxiom
---    , (|-)
     , isCorrect
     , performMinProof
     ) where
