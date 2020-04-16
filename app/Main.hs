@@ -20,9 +20,9 @@ main = do
         rawHypotheses = fmap Text.unpack (Text.splitOn (Text.pack ",") (Text.pack (head toProve)))
         hypotheses = if null (head rawHypotheses) then [] else fmap parse rawHypotheses 
         (checker, buffer) = try statement hypotheses (zip [1..] proof) (Map.empty :: Map.Map PropFormula Row)
-        initial = (concat (List.intersperse ", " hypotheses)) ++ (if null hypotheses
-                                                                  then "|- "
-                                                                  else " |- ") ++ show statement
+        initial = (concat (List.intersperse ", " (fmap show hypotheses))) ++ (if null hypotheses
+                                                                              then "|- "
+                                                                              else " |- ") ++ show statement
     if checker 
     then putStrLn $ constructMinProof initial statement hypotheses buffer
     else putStrLn "Proof is incorrect" 
