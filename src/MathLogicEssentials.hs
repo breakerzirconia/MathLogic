@@ -12,7 +12,7 @@ module MathLogicEssentials
 import Data.Maybe
 import Data.List
 
-data LogicValue = L | T deriving Eq
+data LogicValue = L | T deriving (Eq, Ord)
 
 instance Show LogicValue where
     show T = "1"
@@ -25,7 +25,7 @@ data PropFormula
     | PropFormula :&  PropFormula
     | PropFormula :|  PropFormula
     | PropFormula :-> PropFormula
-    deriving Eq
+    deriving (Eq, Ord)
 
 instance Show PropFormula where
     show (PropString   s) = s

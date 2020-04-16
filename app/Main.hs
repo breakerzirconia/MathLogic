@@ -1,32 +1,27 @@
 module Main where
 
-import Data.List.Split
+import qualified Data.Text as Text
+import qualified Data.Map.Strict as Map
+import qualified Data.List as List
 import System.IO
 import Parser
 import Proof
-
--- readLines :: IO [String]
--- readLines = do 
---     eof <- isEOF
---     if eof 
---     then return []
---     else do
---         line <- getLine
---         lines <- readLines
---         return $ line : lines
+import MathLogicEssentials
 
 main :: IO ()
 main = do
-    handle <- openFile "in.txt" ReadMode
-    everything <- hGetContents handle
-    -- everything <- getContents
+    -- handle <- openFile "in.txt" ReadMode
+    -- everything <- hGetContents handle
+    everything <- getContents
     let (rawInitial:rawProof) = lines everything
         proof = fmap parse rawProof
-        toProve = splitOn "|-" rawInitial
+        toProve = fmap Text.unpack (Text.splitOn (Text.pack "|-") (Text.pack rawInitial))
         statement = parse . head . tail $ toProve
-        rawHypotheses = splitOn "," $ head toProve
+        rawHypotheses = fmap Text.unpack (Text.splitOn (Text.pack ",") (Text.pack (head toProve)))
         hypotheses = if null (head rawHypotheses) then [] else fmap parse rawHypotheses 
-    if isCorrect statement hypotheses proof [] 
-    then putStrLn $ performMinProof statement hypotheses proof
+        (checker, buffer) = try statement hypotheses (zip [1..] proof) (Map.empty :: Map.Map PropFormula Row)
+        initial = (concat (List.intersperse ", " (fmap show hypotheses))) ++ " |- " ++ show statement
+    if checker 
+    then putStrLn $ constructMinProof initial statement hypotheses buffer
     else putStrLn "Proof is incorrect" 
-    hClose handle
+    -- hClose handle
