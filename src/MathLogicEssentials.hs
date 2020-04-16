@@ -32,7 +32,7 @@ instance Show PropFormula where
     show (PropValue    v) = show v
     show (Not          p) = "!" ++ show p
     show (p1    :&    p2) = "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
-    show (p1    :|    p2) = "(" ++ show p1 ++ " v "  ++ show p2 ++ ")"
+    show (p1    :|    p2) = "(" ++ show p1 ++ " | "  ++ show p2 ++ ")"
     show (p1    :->   p2) = "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
 
 infixr 1 :->
