@@ -1,3 +1,5 @@
+{-# LANGUAGE Strict #-}
+
 module MathLogicEssentials 
     ( PropFormula (..)
     , LogicValue (..)

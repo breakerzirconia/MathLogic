@@ -1,8 +1,11 @@
+{-# LANGUAGE Strict #-}
+
 module Main where
 
 import qualified Data.Text as Text
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
+import Data.Maybe
 import System.IO
 import Parser
 import Proof
@@ -19,11 +22,10 @@ main = do
         statement = parse . head . tail $ toProve
         rawHypotheses = fmap Text.unpack (Text.splitOn (Text.pack ",") (Text.pack (head toProve)))
         hypotheses = if null (head rawHypotheses) then [] else fmap parse rawHypotheses 
-        (checker, buffer) = try statement hypotheses (zip [1..] proof) (Map.empty :: Map.Map PropFormula Row)
-        initial = (concat (List.intersperse ", " (fmap show hypotheses))) ++ (if null hypotheses
-                                                                              then "|- "
-                                                                              else " |- ") ++ show statement
-    if checker 
-    then putStrLn $ constructMinProof initial statement hypotheses buffer
+        mpContainer = Map.fromListWith (++) . fmap (\(a :-> b) -> (b, [a])) $ filter isOuterImplication proof
+        res = try statement hypotheses (zip [1..] proof) (Just (Map.empty :: Map.Map PropFormula Row)) mpContainer
+    if last proof == statement && res /= Nothing 
+    then let buffer = fromJust res
+         in putStrLn $ constructMinProof rawInitial statement hypotheses buffer mpContainer
     else putStrLn "Proof is incorrect" 
     -- hClose handle

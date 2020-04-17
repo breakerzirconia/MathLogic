@@ -1,3 +1,5 @@
+{-# LANGUAGE Strict #-}
+
 module Proof 
     ( isAxiom
     , try
@@ -8,10 +10,11 @@ module Proof
 
 import Data.List
 import Data.Maybe
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import MathLogicEssentials
+import Control.Applicative ((<|>))
 
-data Mode = AxiomSchema Int | ModusPonens Int Int | Hypothesis Int deriving Eq
+data Mode = AxiomSchema Int | ModusPonens Int Int | Hypothesis Int deriving (Eq, Ord)
 
 instance Show Mode where
     show (AxiomSchema x) = "Ax. sch. " ++ show x
@@ -20,7 +23,7 @@ instance Show Mode where
 
 data Row = Row { getPosition :: Int
                , getMode :: Mode 
-               } deriving Eq
+               } deriving (Eq, Ord)
 
 instance Show Row where
     show (Row i m) = "[" ++ show i ++ ". " ++ show m ++ "]"
@@ -28,8 +31,14 @@ instance Show Row where
 showRPF :: (PropFormula, Row) -> String
 showRPF (p, r) = show r ++ " " ++ show p
 
-constructMinProof :: String -> PropFormula -> [PropFormula] -> Map.Map PropFormula Row -> String
-constructMinProof rawInitial statement hypotheses buffer 
+constructMinProof 
+    :: String 
+    -> PropFormula 
+    -> [PropFormula] 
+    -> Map.Map PropFormula Row 
+    -> Map.Map PropFormula [PropFormula] 
+    -> String
+constructMinProof rawInitial statement hypotheses buffer mpContainer
     = let lastPosition = getPosition $ buffer Map.! statement
           (keys, rows) = unzip $ Map.toList buffer
           positions = fmap getPosition rows
@@ -40,7 +49,7 @@ constructMinProof rawInitial statement hypotheses buffer
           inclusions = trim (Map.empty :: Map.Map Int Int) newBuffer lastPosition
           buffer' = Map.filterWithKey (\k _ -> inclusions Map.!? k /= Nothing) newBuffer
           newProof = fmap (fst . snd) $ Map.toList buffer'
-          (checker, newDetailedProof) = try statement hypotheses (zip [1..] newProof) (Map.empty :: Map.Map PropFormula Row)
+          newDetailedProof = fromJust $ try statement hypotheses (zip [1..] newProof) (Just (Map.empty :: Map.Map PropFormula Row)) mpContainer
           newDetailedProof' = sortOn (getPosition . snd) $ Map.toList newDetailedProof
       in unlines . (:) rawInitial . fmap showRPF $ newDetailedProof'
 
@@ -61,30 +70,37 @@ safeUpdate position inclusions = if value == Nothing
   where
     value = inclusions Map.!? position
                                   
-try 
-    :: PropFormula 
+try :: PropFormula 
     -> [PropFormula] 
     -> [(Int, PropFormula)] 
-    -> Map.Map PropFormula Row 
-    -> (Bool, Map.Map PropFormula Row)
-try statement hypotheses [] buffer = (buffer Map.!? statement /= Nothing, buffer)
-try statement hypotheses ((pos, cur):rest) buffer
-    | ind /= Nothing = try statement hypotheses rest (Map.insert cur (Row pos (Hypothesis (fromJust ind + 1))) buffer)
-    | ax /= Nothing = try statement hypotheses rest (Map.insert cur (Row pos (AxiomSchema (fromJust ax))) buffer)
-    | mp /= Nothing = let (i1, i2) = fromJust mp 
-                          (i1', i2') = (max i1 i2, min i1 i2)
-                      in try statement hypotheses rest (Map.insert cur (Row pos (ModusPonens i1' i2')) buffer)
-    | otherwise = (False, buffer)
-    where ax = isAxiom cur
-          ind = findIndex (==cur) hypotheses
-          mp = findMP cur buffer
+    -> Maybe (Map.Map PropFormula Row) 
+    -> Map.Map PropFormula [PropFormula]
+    -> Maybe (Map.Map PropFormula Row)
+try statement hypotheses proof buffer mpContainer = foldl' try' buffer proof
+  where
+    try' :: Maybe (Map.Map PropFormula Row) -> (Int, PropFormula) -> Maybe (Map.Map PropFormula Row)
+    try' Nothing _ = Nothing
+    try' (Just buffer') (pos, cur) 
+        | isJust (buffer' Map.!? cur) = Just buffer'
+        | otherwise = case ax cur <|> hyp cur <|> mp cur buffer' of
+                          Just mode -> Just (Map.insert cur (Row pos mode) buffer')
+                          Nothing -> Nothing
 
-findMP :: PropFormula -> Map.Map PropFormula Row -> Maybe (Int, Int)
-findMP b buffer = case find (\(a, row) -> Map.member (a :-> b) buffer) (Map.assocs buffer) of
-                      Nothing -> Nothing
-                      Just (a, row1) -> let row2 = buffer Map.! (a :-> b)
-                                        in Just ((getPosition row1), (getPosition row2))
+    ax :: PropFormula -> Maybe Mode
+    ax = fmap AxiomSchema . isAxiom
 
+    hyp :: PropFormula -> Maybe Mode
+    hyp cur = fmap Hypothesis . fmap (+1) $ findIndex (==cur) hypotheses
+
+    mp :: PropFormula -> Map.Map PropFormula Row -> Maybe Mode
+    mp cur buffer' = findMP cur buffer' mpContainer
+
+findMP :: PropFormula -> Map.Map PropFormula Row -> Map.Map PropFormula [PropFormula] -> Maybe Mode
+findMP b buffer mpContainer = case mpContainer Map.!? b of
+                                  Nothing -> Nothing
+                                  Just list -> case find (\a -> Map.member a buffer && Map.member (a :-> b) buffer) list of
+                                                   Nothing -> Nothing
+                                                   Just a -> Just $ ModusPonens (getPosition (buffer Map.! (a :-> b))) (getPosition (buffer Map.! a))
 
 isAxiom :: PropFormula -> Maybe Int
 isAxiom = isAxiom1
@@ -103,24 +119,24 @@ isAxiom2 p = case p of
                                                    && b == d
                                                    && e == g 
                                                    then Just 2
-                                                   else isAxiom3or4 p
-    _ -> isAxiom3or4 p
+                                                   else isAxiom3 p
+    _ -> isAxiom3 p
 
-isAxiom3or4 p = case p of
+isAxiom3 p = case p of
+--  a :-> b :-> a :& b
+    a :-> b :-> c :& d -> if a == c && b == d
+                          then Just 3
+                          else isAxiom4or5 p
+    _ -> isAxiom4or5 p
+
+isAxiom4or5 p = case p of
 --  a :& b :-> a
 --  a :& b :-> b
     a :& b :-> c -> if a == c
-                    then Just 3
+                    then Just 4
                     else if b == c
-                         then Just 4
-                         else isAxiom5 p
-    _ -> isAxiom5 p
-
-isAxiom5 p = case p of
---  a :-> b :-> a :& b
-    a :-> b :-> c :& d -> if a == c && b == d
-                          then Just 5
-                          else isAxiom6or7 p
+                         then Just 5
+                         else isAxiom6or7 p
     _ -> isAxiom6or7 p
 
 isAxiom6or7 p = case p of
