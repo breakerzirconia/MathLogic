@@ -52,6 +52,9 @@ predicate p = do
 upper :: Parser Char
 upper = predicate isUpper
 
+lower :: Parser Char
+lower = predicate isLower
+
 alphanum :: Parser Char
 alphanum = predicate isAlphaNum
 
@@ -95,32 +98,96 @@ disjunction :: Parser PropFormula
 disjunction = leftAssociative (:|) conjunction (character '|')
 
 conjunction :: Parser PropFormula
-conjunction = leftAssociative (:&) negation (character '&')
+conjunction = leftAssociative (:&) unary (character '&')
 
-negation :: Parser PropFormula
-negation = do
+unary :: Parser PropFormula
+unary = do
         character '!'
-        y <- negation
+        y <- unary
         return $ Not y
-    <|> variable 
     <|> do
         character '('
         x <- implication
         character ')'
         return x 
+    <|> do
+        character '@'
+        x <- lower
+        character '.'
+        y <- implication
+        return $ Forall [x] y
+    <|> do
+        character '?'
+        x <- lower
+        character '.'
+        y <- implication
+        return $ Exists [x] y
+    <|> strOrPeano 
 
-variable :: Parser PropFormula
-variable = do 
-    x  <- upper
-    xs <- many restVariable
-    return . PropString $ x:xs
+strOrPeano :: Parser PropFormula
+strOrPeano = do 
+        x <- upper
+        return . PropString $ [x]
+    <|> do
+        x <- expr
+        character '='
+        y <- expr
+        return . Peano $ x := y
+
+expr :: Parser PeanoFormula
+expr = leftAssociative (:+) term (character '+')
+
+term :: Parser PeanoFormula
+term = leftAssociative (:*) factor (character '*')
+
+factor :: Parser PeanoFormula
+factor = do
+        x <- factor'
+        i <- someApostrophe
+        return $ constructSucc x i
+    <|> do
+        character '0'
+        return Zero
+    <|> do
+        character '('
+        x <- expr
+        character ')'
+        return x
+    <|> do
+        x <- lower
+        return $ PeanoVariable [x]
+
+someApostrophe :: Parser Int
+someApostrophe = do
+        character '\''
+        i <- someApostrophe
+        return (i + 1)
+    <|> return 0
+
+constructSucc :: PeanoFormula -> Int -> PeanoFormula
+constructSucc x 0 = x
+constructSucc x i = Succ . constructSucc x $ i - 1 
+
+factor' :: Parser PeanoFormula
+factor' = do
+        x <- lower
+        return $ PeanoVariable [x]
+    <|> do
+        character '0'
+        return Zero
+    <|> do
+        character '('
+        x <- expr
+        character ')'
+        return x      
+
+parseApostrophe :: Parser Char
+parseApostrophe = undefined
 
 -- =========================================== --
 
 parse :: String -> PropFormula
-parse given 
-    = fst 
-    . head 
-    . runParser implication 
-    . filter (not . isSpace) 
-    $ given
+parse = fst
+      . head
+      . runParser implication
+      . filter (not . isSpace)

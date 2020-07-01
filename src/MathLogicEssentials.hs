@@ -3,6 +3,7 @@
 module MathLogicEssentials 
     ( PropFormula (..)
     , LogicValue (..)
+    , PeanoFormula(..)
     , extractStrings 
     , retrieveValue
     , transform
@@ -27,19 +28,45 @@ data PropFormula
     | PropFormula :&  PropFormula
     | PropFormula :|  PropFormula
     | PropFormula :-> PropFormula
+    | Forall String PropFormula
+    | Exists String PropFormula
+    | Peano PeanoFormula
     deriving (Eq, Ord)
 
+data PeanoFormula
+    = Zero
+    | Succ PeanoFormula
+    | PeanoVariable String
+    | PeanoFormula :+ PeanoFormula
+    | PeanoFormula :* PeanoFormula
+    | PeanoFormula := PeanoFormula
+    deriving (Eq, Ord)
+
+instance Show PeanoFormula where
+    show Zero           = "0"
+    show (Succ       p) = show p ++ "'"
+    show (PeanoVariable s) = s
+    show (p1   :+   p2) = "(" ++ show p1 ++ "+" ++ show p2 ++ ")"
+    show (p1   :*   p2) = "(" ++ show p1 ++ "*" ++ show p2 ++ ")"
+    show (p1   :=   p2) = "(" ++ show p1 ++ "=" ++ show p2 ++ ")"
+
 instance Show PropFormula where
-    show (PropString   s) = s
-    show (PropValue    v) = show v
-    show (Not          p) = "!" ++ show p
-    show (p1    :&    p2) = "(" ++ show p1 ++ " & "  ++ show p2 ++ ")"
-    show (p1    :|    p2) = "(" ++ show p1 ++ " | "  ++ show p2 ++ ")"
-    show (p1    :->   p2) = "(" ++ show p1 ++ " -> " ++ show p2 ++ ")"
+    show (PropString  s) = s
+    show (PropValue   v) = show v
+    show (Not         p) = "(" ++ "!" ++ show p ++ ")"
+    show (p1    :&   p2) = "(" ++ show p1 ++ "&"  ++ show p2 ++ ")"
+    show (p1    :|   p2) = "(" ++ show p1 ++ "|"  ++ show p2 ++ ")"
+    show (p1    :->  p2) = "(" ++ show p1 ++ "->" ++ show p2 ++ ")"
+    show (Forall  s   p) = "(" ++ "@" ++ s ++ "." ++ show p ++ ")"
+    show (Exists  s   p) = "(" ++ "?" ++ s ++ "." ++ show p ++ ")"
+    show (Peano       p) = show p
 
 infixr 1 :->
 infixl 2 :|
 infixl 3 :&
+infixl 4 :=
+infixl 5 :+
+infixl 6 :*
 
 anti :: LogicValue -> LogicValue
 anti T = L
