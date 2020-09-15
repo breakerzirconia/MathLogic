@@ -181,9 +181,6 @@ factor' = do
         character ')'
         return x      
 
-parseApostrophe :: Parser Char
-parseApostrophe = undefined
-
 -- =========================================== --
 
 parse :: String -> PropFormula

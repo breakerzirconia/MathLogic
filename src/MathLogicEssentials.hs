@@ -3,10 +3,9 @@
 module MathLogicEssentials 
     ( PropFormula (..)
     , LogicValue (..)
-    , PeanoFormula(..)
+    , PeanoFormula (..)
     , extractStrings 
     , retrieveValue
-    , transform
     , isTautology
     , isContradictory
     , isOuterImplication
@@ -43,12 +42,12 @@ data PeanoFormula
     deriving (Eq, Ord)
 
 instance Show PeanoFormula where
-    show Zero           = "0"
-    show (Succ       p) = show p ++ "'"
+    show Zero              = "0"
+    show (Succ          p) = show p ++ "'"
     show (PeanoVariable s) = s
-    show (p1   :+   p2) = "(" ++ show p1 ++ "+" ++ show p2 ++ ")"
-    show (p1   :*   p2) = "(" ++ show p1 ++ "*" ++ show p2 ++ ")"
-    show (p1   :=   p2) = "(" ++ show p1 ++ "=" ++ show p2 ++ ")"
+    show (p1     :+    p2) = "(" ++ show p1 ++ "+" ++ show p2 ++ ")"
+    show (p1     :*    p2) = "(" ++ show p1 ++ "*" ++ show p2 ++ ")"
+    show (p1     :=    p2) = "(" ++ show p1 ++ "=" ++ show p2 ++ ")"
 
 instance Show PropFormula where
     show (PropString  s) = s
@@ -123,17 +122,6 @@ retrieveValue (Not           p) list = anti $ retrieveValue p list
 retrieveValue (p1    :&     p2) list = (retrieveValue p1 list)  &: (retrieveValue p2 list)
 retrieveValue (p1    :|     p2) list = (retrieveValue p1 list)  |: (retrieveValue p2 list)
 retrieveValue (p1    :->    p2) list = (retrieveValue p1 list) ->: (retrieveValue p2 list)
-
-transform :: PropFormula -> PropVarMap -> String
-transform (PropString s) list = case lookUpValue s list of
-    Nothing -> error "No such propositional string could be found"
-    Just res -> show res
-
-transform (PropValue     v) list = show v
-transform (Not           p) list = "!(" ++ transform p  list ++ ")"
-transform (p1    :&     p2) list =  "(" ++ transform p1 list ++ " & "  ++ transform p2 list ++ ")"
-transform (p1    :|     p2) list =  "(" ++ transform p1 list ++ " v "  ++ transform p2 list ++ ")"
-transform (p1    :->    p2) list =  "(" ++ transform p1 list ++ " -> " ++ transform p2 list ++ ")"
 
 generateAllValues :: Int -> [[LogicValue]]
 generateAllValues 0 = [[]]
