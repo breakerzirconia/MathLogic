@@ -35,16 +35,16 @@ import ProofConstructor
 -- given the formal proof, checks if it's correct (including predicate calculus and formal arithmetic)
 main :: IO ()
 main = do
-    handle <- openFile "C:\\Users\\ter-k\\Haskell\\MathLogic\\app\\in.txt" ReadMode
-    everything <- hGetContents handle
-    -- everything <- getContents
+    -- handle <- openFile "in.txt" ReadMode
+    -- everything <- hGetContents handle
+    everything <- getContents
     let (rawFormula:rawProof) = lines everything
         formula = parse . tail . tail $ rawFormula
         proof = map parse rawProof
         mpContainer = Map.fromListWith (++) . fmap (\(a :-> b) -> (b, [a])) $ filter isOuterImplication proof
         cooked = analyze formula [] (zip [1..] proof) mpContainer
     putStrLn . unlines . (("|-" ++ show formula) :) . map show $ cooked
-    hClose handle
+    -- hClose handle
 
 -- -- given the propositional formula, constructs the proof
 -- main :: IO ()
