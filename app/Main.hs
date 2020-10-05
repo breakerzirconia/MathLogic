@@ -10,6 +10,7 @@ import System.IO
 import Parser
 import Proof
 import MathLogicEssentials
+import ProofConstructor
 
 -- given the formal proof, checks if it's correct and minimizes it (excluding predicate calculus and formal arithmetic)
 -- main :: IO ()
@@ -41,6 +42,16 @@ main = do
         formula = parse . tail . tail $ rawFormula
         proof = map parse rawProof
         mpContainer = Map.fromListWith (++) . fmap (\(a :-> b) -> (b, [a])) $ filter isOuterImplication proof
-        cooked = analyze formula [] (zip [1..] proof) [] mpContainer
-    -- putStrLn . unlines $ cooked
+        cooked = analyze formula [] (zip [1..] proof) mpContainer
+    putStrLn . unlines . (("|-" ++ show formula) :) . map show $ cooked
     hClose handle
+
+-- -- given the propositional formula, constructs the proof
+-- main :: IO ()
+-- main = do
+--     handle <- openFile "C:\\Users\\ter-k\\Haskell\\MathLogic\\app\\in.txt" ReadMode
+--     everything <- hGetContents handle
+--     -- everything <- getContents
+--     let formula = parse everything
+--         proof = constructProof formula
+--     hClose handle

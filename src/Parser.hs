@@ -132,7 +132,7 @@ strOrPeano = do
         x <- expr
         character '='
         y <- expr
-        return . Peano $ x := y
+        return $ x := y
 
 expr :: Parser PeanoFormula
 expr = leftAssociative (:+) term (character '+')

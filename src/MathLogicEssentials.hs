@@ -1,15 +1,6 @@
 {-# LANGUAGE Strict #-}
 
-module MathLogicEssentials 
-    ( PropFormula (..)
-    , LogicValue (..)
-    , PeanoFormula (..)
-    , extractStrings 
-    , retrieveValue
-    , isTautology
-    , isContradictory
-    , isOuterImplication
-    ) where
+module MathLogicEssentials where
 
 import Data.Maybe
 import Data.List
@@ -29,7 +20,7 @@ data PropFormula
     | PropFormula :-> PropFormula
     | Forall String PropFormula
     | Exists String PropFormula
-    | Peano PeanoFormula
+    | PeanoFormula := PeanoFormula
     deriving (Eq, Ord)
 
 data PeanoFormula
@@ -38,7 +29,6 @@ data PeanoFormula
     | PeanoVariable String
     | PeanoFormula :+ PeanoFormula
     | PeanoFormula :* PeanoFormula
-    | PeanoFormula := PeanoFormula
     deriving (Eq, Ord)
 
 instance Show PeanoFormula where
@@ -47,7 +37,6 @@ instance Show PeanoFormula where
     show (PeanoVariable s) = s
     show (p1     :+    p2) = "(" ++ show p1 ++ "+" ++ show p2 ++ ")"
     show (p1     :*    p2) = "(" ++ show p1 ++ "*" ++ show p2 ++ ")"
-    show (p1     :=    p2) = "(" ++ show p1 ++ "=" ++ show p2 ++ ")"
 
 instance Show PropFormula where
     show (PropString  s) = s
@@ -58,7 +47,7 @@ instance Show PropFormula where
     show (p1    :->  p2) = "(" ++ show p1 ++ "->" ++ show p2 ++ ")"
     show (Forall  s   p) = "(" ++ "@" ++ s ++ "." ++ show p ++ ")"
     show (Exists  s   p) = "(" ++ "?" ++ s ++ "." ++ show p ++ ")"
-    show (Peano       p) = show p
+    show (p1    :=   p2) = "(" ++ show p1 ++ "=" ++ show p2 ++ ")"
 
 infixr 1 :->
 infixl 2 :|
@@ -89,20 +78,20 @@ infixl 3  &:
 
 extractStrings :: PropFormula -> [String]
 extractStrings p = nub $ extractStrings' p []
-
-extractStrings' :: PropFormula -> [String] -> [String]
-extractStrings' (PropString    s) acc =   s : acc
-extractStrings' (PropValue     v) acc =   acc
-extractStrings' (Not           p) acc =   extractStrings' p  acc
-extractStrings' (p1    :&     p2) acc =  (extractStrings' p1 acc) 
-                                        ++ (extractStrings' p2 acc)
-                                        ++  acc
-extractStrings' (p1    :|     p2) acc =  (extractStrings' p1 acc) 
-                                        ++ (extractStrings' p2 acc)
-                                        ++  acc
-extractStrings' (p1    :->    p2) acc =  (extractStrings' p1 acc) 
-                                        ++ (extractStrings' p2 acc)
-                                        ++  acc
+  where
+    extractStrings' :: PropFormula -> [String] -> [String]
+    extractStrings' (PropString    s) acc =   s : acc
+    extractStrings' (PropValue     v) acc =   acc
+    extractStrings' (Not           p) acc =   extractStrings' p  acc
+    extractStrings' (p1    :&     p2) acc =  (extractStrings' p1 acc) 
+                                            ++ (extractStrings' p2 acc)
+                                            ++  acc
+    extractStrings' (p1    :|     p2) acc =  (extractStrings' p1 acc) 
+                                            ++ (extractStrings' p2 acc)
+                                            ++  acc
+    extractStrings' (p1    :->    p2) acc =  (extractStrings' p1 acc) 
+                                            ++ (extractStrings' p2 acc)
+                                            ++  acc
 
 type PropVarMap = [(String, LogicValue)]
 
@@ -124,9 +113,7 @@ retrieveValue (p1    :|     p2) list = (retrieveValue p1 list)  |: (retrieveValu
 retrieveValue (p1    :->    p2) list = (retrieveValue p1 list) ->: (retrieveValue p2 list)
 
 generateAllValues :: Int -> [[LogicValue]]
-generateAllValues 0 = [[]]
-generateAllValues n = let prev = generateAllValues (n - 1)
-                      in map (L:) prev ++ map (T:) prev
+generateAllValues = fmap concat . traverse (\x -> [L : x, T : x]) . flip replicate []
 
 isTautology :: PropFormula -> Bool
 isTautology p = all (== T) 
@@ -145,3 +132,47 @@ isContradictory p = all (== L)
 isOuterImplication :: PropFormula -> Bool
 isOuterImplication (_ :-> _) = True
 isOuterImplication _ = False
+
+splitPropFormula :: PropFormula -> [PropFormula]
+splitPropFormula formula = case formula of
+  (PropString _)      -> []
+  (Not x)             -> [x]
+  (a :& b)            -> [a, b]
+  (a :| b)            -> [a, b]
+  (a :-> b)           -> [a, b]
+  (Forall x formula') -> [formula']
+  (Exists x formula') -> [formula']
+  (_ := _)            -> []
+
+splitPeanoFormula :: PeanoFormula -> [PeanoFormula]
+splitPeanoFormula formula = case formula of
+  Zero            -> []
+  Succ a          -> [a]
+  PeanoVariable _ -> []
+  (a :+ b)        -> [a, b]
+  (a :* b)        -> [a, b]
+
+splitQuantifier :: PropFormula -> Maybe (String, PropFormula)
+splitQuantifier (Forall x formula) = Just (x, formula)
+splitQuantifier (Exists x formula) = Just (x, formula)
+splitQuantifier _ = Nothing
+
+checkPropFormulaTypeIdentity :: PropFormula -> PropFormula -> Bool
+checkPropFormulaTypeIdentity (PropString _) (PropString _) = True
+checkPropFormulaTypeIdentity (PropValue _)  (PropValue _)  = True
+checkPropFormulaTypeIdentity (Not _)        (Not _)        = True
+checkPropFormulaTypeIdentity (_ :& _)       (_ :& _)       = True
+checkPropFormulaTypeIdentity (_ :| _)       (_ :| _)       = True
+checkPropFormulaTypeIdentity (_ :-> _)      (_ :-> _)      = True
+checkPropFormulaTypeIdentity (Forall _ _)   (Forall _ _)   = True
+checkPropFormulaTypeIdentity (Exists _ _)   (Exists _ _)   = True
+checkPropFormulaTypeIdentity (_ := _)       (_ := _)       = True
+checkPropFormulaTypeIdentity _              _              = False
+
+checkPeanoFormulaTypeIdentity :: PeanoFormula -> PeanoFormula -> Bool
+checkPeanoFormulaTypeIdentity Zero              Zero              = True
+checkPeanoFormulaTypeIdentity (Succ _)          (Succ _)          = True
+checkPeanoFormulaTypeIdentity (PeanoVariable _) (PeanoVariable _) = True
+checkPeanoFormulaTypeIdentity (_ :+ _)          (_ :+ _)          = True
+checkPeanoFormulaTypeIdentity (_ :* _)          (_ :* _)          = True
+checkPeanoFormulaTypeIdentity _                 _                 = False
