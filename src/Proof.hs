@@ -339,12 +339,12 @@ analyze given hypotheses proof mpContainer = go given hypotheses proof mpContain
     intro n (Exists x b :-> a)   buffer = intro n (a :-> Forall x b) buffer
     intro _ _                    _      = Nothing
 
-axSch11And12 :: Integer -> PropFormula -> Maybe StepInformation
-axSch11And12 n (b :-> (Exists x a))   = axSch11And12 n ((Forall x a) :-> b)
-axSch11And12 n f@((Forall x a) :-> b) = case isAxiomSchema11And12 f of
-  Just k  -> Just $ Step (Row n (AxiomSchema k)) f
-  Nothing -> fmap (\(_, term) -> Error (NotFreeVariable n x term)) (checkSubstitutionCorrectness' a b x)
-axSch11And12 _ _                      = Nothing
+    axSch11And12 :: Integer -> PropFormula -> Maybe StepInformation
+    axSch11And12 n (b :-> (Exists x a))   = axSch11And12 n ((Forall x a) :-> b)
+    axSch11And12 n f@((Forall x a) :-> b) = case isAxiomSchema11And12 f of
+      Just k  -> Just $ Step (Row n (AxiomSchema k)) f
+      Nothing -> fmap (\(_, term) -> Error (NotFreeVariable n x term)) (checkSubstitutionCorrectness' a b x)
+    axSch11And12 _ _                      = Nothing
 
 findMPReverse 
   :: Integer 
