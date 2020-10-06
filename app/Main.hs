@@ -2,15 +2,14 @@
 
 module Main where
 
-import qualified Data.Text as Text
-import qualified Data.Map.Strict as Map
-import qualified Data.List as List
-import Data.Maybe
-import System.IO
-import Parser
-import Proof
-import MathLogicEssentials
-import ProofConstructor
+import qualified Data.List           as List
+import qualified Data.Map.Strict     as Map
+import           Data.Maybe
+import qualified Data.Text           as Text
+import           MathLogicEssentials
+import           Parser
+import           Proof
+import           System.IO
 
 -- given the formal proof, checks if it's correct and minimizes it (excluding predicate calculus and formal arithmetic)
 -- main :: IO ()
@@ -35,16 +34,16 @@ import ProofConstructor
 -- given the formal proof, checks if it's correct (including predicate calculus and formal arithmetic)
 main :: IO ()
 main = do
-    -- handle <- openFile "in.txt" ReadMode
-    -- everything <- hGetContents handle
-    everything <- getContents
+    handle <- openFile "C:\\Users\\ter-k\\Haskell\\MathLogic\\app\\in.txt" ReadMode
+    everything <- hGetContents handle
+    -- everything <- getContents
     let (rawFormula:rawProof) = lines everything
         formula = parse . tail . tail $ rawFormula
         proof = map parse rawProof
-        mpContainer = Map.fromListWith (++) . fmap (\(a :-> b) -> (b, [a])) $ filter isOuterImplication proof
-        cooked = analyze formula [] (zip [1..] proof) mpContainer
+        -- mpContainer = Map.fromListWith (++) . fmap (\(a :-> b) -> (b, [a])) $ filter isOuterImplication proof
+        cooked = analyze formula [] (zip [1..] proof) {-mpContainer-}
     putStrLn . unlines . (("|-" ++ show formula) :) . map show $ cooked
-    -- hClose handle
+    hClose handle
 
 -- -- given the propositional formula, constructs the proof
 -- main :: IO ()

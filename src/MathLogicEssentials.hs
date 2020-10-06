@@ -2,8 +2,8 @@
 
 module MathLogicEssentials where
 
-import Data.Maybe
 import Data.List
+import Data.Maybe
 
 data LogicValue = L | T deriving (Eq, Ord)
 

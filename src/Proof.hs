@@ -11,13 +11,14 @@ module Proof
     , analyze
     ) where
 
-import Data.List
-import Data.Maybe
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set 
-import MathLogicEssentials
-import Parser
-import Control.Applicative ((<|>))
+import           Control.Applicative ((<|>))
+import           Data.List
+import qualified Data.Map.Strict     as Map
+import           Data.Maybe
+import           Data.Ord            (comparing)
+import qualified Data.Set            as Set 
+import           MathLogicEssentials
+import           Parser
 
 data Mode 
     = AxiomSchema Integer
@@ -33,7 +34,7 @@ instance Show Mode where
     show (ModusPonens a b) = "M.P. " ++ show a ++ ", " ++ show b
     show (Hypothesis h) = "Hypothesis " ++ show h
     show (AxiomFormalArithmetic x) = "Ax. A" ++ show x
-    show (QIntro k) = "@?-intro " ++ show k
+    show (QIntro k) = "?@-intro " ++ show k
     show Induction = "Ax. sch. A9"
 
 data Row = Row { getPosition :: Integer
@@ -51,11 +52,11 @@ data Error
     deriving (Eq, Ord)
 
 instance Show Error where
-    show (FreeOccurence i s) = "Expression " 
-                            ++ show i 
-                            ++ ": variable " 
-                            ++ s
-                            ++ " occurs free in ?@-rule."
+    show (FreeOccurence i s)     = "Expression " 
+                                ++ show i 
+                                ++ ": variable " 
+                                ++ s
+                                ++ " occurs free in ?@-rule."
     show (NotFreeVariable i s p) = "Expression "
                                 ++ show i
                                 ++ ": variable "
@@ -63,8 +64,8 @@ instance Show Error where
                                 ++ " is not free for term "
                                 ++ show p
                                 ++ " in ?@-axiom."
-    show (NotProven i) = "Expression " ++ show i ++ " is not proved."
-    show DifferentProof = "The proof proves different expression."
+    show (NotProven i)           = "Expression " ++ show i ++ " is not proved."
+    show DifferentProof          = "The proof proves different expression."
 
 data StepInformation = Step { getRow :: Row 
                             , getFormula :: PropFormula
@@ -174,6 +175,7 @@ isAxiomSchema ((a :-> b) :-> (c :-> d) :-> (e :| f :-> g)) | a == e &&
                                                              c == f && 
                                                              b == d && 
                                                              b == g = Just 8
+
 isAxiomSchema ((a :-> b) :-> (c :-> Not d) :-> Not e) | a == c &&
                                                         a == e &&
                                                         b == d = Just 9
@@ -292,25 +294,34 @@ analyze
   :: PropFormula  
   -> [PropFormula]
   -> [(Integer, PropFormula)] 
-  -> Map.Map PropFormula [PropFormula]
   -> [StepInformation]
-analyze given hypotheses proof mpContainer = go given hypotheses proof mpContainer Map.empty
+analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty Map.empty
   where
     go :: PropFormula 
        -> [PropFormula]
        -> [(Integer, PropFormula)] 
-       -> Map.Map PropFormula [PropFormula]
+       -> Map.Map PropFormula [(Integer, PropFormula)]
+       -> Map.Map PropFormula Integer
        -> Map.Map PropFormula StepInformation
        -> [StepInformation]
-    go given hypotheses [] mpContainer buffer = []
-    go given hypotheses ((n, l):ls) mpContainer buffer
-      = case axSch n l <|> hyp n l <|> mp n l buffer <|> axFA n l <|> ind n l <|> intro n l buffer <|> axSch11And12 n l of
+    go given hypotheses [] mpContainer container buffer = []
+    go given hypotheses ((n, l):ls) mpContainer container buffer
+      = case hyp n l <|> axSch n l 
+                     <|> axSch11And12 n l 
+                     <|> axFA n l 
+                     <|> ind n l 
+                     <|> mp n l mpContainer container buffer 
+                     <|> intro n l container of
           Just si -> case si of 
             Step  _ _ -> if null ls
                          then if l == given
-                              then si : go given hypotheses ls mpContainer (Map.insert l si buffer)
+                              then si : go given hypotheses ls (case l of
+                                q :-> w -> Map.insertWith (++) w [(n, l)] mpContainer
+                                _       -> mpContainer) (Map.insert l n container) (Map.insert l si buffer)
                               else si : [Error DifferentProof]
-                         else si : go given hypotheses ls mpContainer (Map.insert l si buffer)
+                         else si : go given hypotheses ls (case l of
+                           q :-> w -> Map.insertWith (flip (++)) w [(n, l)] mpContainer
+                           _       -> mpContainer) (Map.insert l n container) (Map.insert l si buffer)
             Error _   -> [si]
           Nothing -> [Error (NotProven n)]
 
@@ -321,8 +332,21 @@ analyze given hypotheses proof mpContainer = go given hypotheses proof mpContain
     hyp n cur = fmap (\i -> (Step (Row n (Hypothesis (toInteger (i + 1)))) cur)) 
               $ findIndex (==cur) hypotheses
 
-    mp :: Integer -> PropFormula -> Map.Map PropFormula StepInformation -> Maybe StepInformation
-    mp n cur buffer' = findMPReverse n cur buffer' mpContainer
+    mp :: Integer 
+       -> PropFormula 
+       -> Map.Map PropFormula [(Integer, PropFormula)]
+       -> Map.Map PropFormula Integer
+       -> Map.Map PropFormula StepInformation
+       -> Maybe StepInformation
+    mp n b mpContainer container buffer = case mpContainer Map.!? b of
+      Nothing   -> Nothing
+      Just list -> if null list
+                   then Nothing
+                   else case maximumBy (comparing fst) 
+                             . filter (\(_, (a :-> _)) -> Map.member a buffer && Map.member (a :-> b) buffer) 
+                             $ list of
+        (r, a :-> _) -> let l = (container Map.! a)
+                        in Just $ Step (Row n (ModusPonens l r)) b
 
     axFA :: Integer -> PropFormula -> Maybe StepInformation
     axFA n f = fmap (\i -> Step (Row n (AxiomFormalArithmetic i)) f) $ isAxiomFormalArithmetic f
@@ -330,35 +354,25 @@ analyze given hypotheses proof mpContainer = go given hypotheses proof mpContain
     ind :: Integer -> PropFormula -> Maybe StepInformation
     ind n f = fmap (const (Step (Row n Induction) f)) $ isInduction f
 
-    intro :: Integer -> PropFormula -> Map.Map PropFormula StepInformation -> Maybe StepInformation
-    intro n f@(a :-> Forall x b) buffer
-      | Map.member (a :-> b) buffer = if checkNonFreeOccurence a x 
-                                      then Just $ Step (Row n (QIntro ((getPosition . getRow) (buffer Map.! (a :-> b))))) f
+    intro :: Integer -> PropFormula -> Map.Map PropFormula Integer -> Maybe StepInformation
+    intro n f@(Exists x b :-> a) container
+      | Map.member (b :-> a) container = if checkNonFreeOccurence a x 
+                                      then Just $ Step (Row n (QIntro (container Map.! (b :-> a)))) f
                                       else Just $ Error (FreeOccurence n x)
-      | otherwise = Nothing
-    intro n (Exists x b :-> a)   buffer = intro n (a :-> Forall x b) buffer
+    intro n f@(a :-> Forall x b) container
+      | Map.member (a :-> b) container = if checkNonFreeOccurence a x
+                                      then Just $ Step (Row n (QIntro (container Map.! (a :-> b)))) f
+                                      else Just $ Error (FreeOccurence n x)
     intro _ _                    _      = Nothing
-
+    
     axSch11And12 :: Integer -> PropFormula -> Maybe StepInformation
-    axSch11And12 n (b :-> (Exists x a))   = axSch11And12 n ((Forall x a) :-> b)
-    axSch11And12 n f@((Forall x a) :-> b) = case isAxiomSchema11And12 f of
+    axSch11And12 n f@(b :-> Exists x a) = case isAxiomSchema11And12 f of
+      Just k  -> Just $ Step (Row n (AxiomSchema k)) f
+      Nothing -> fmap (\(_, term) -> Error (NotFreeVariable n x term)) (checkSubstitutionCorrectness' a b x)
+    axSch11And12 n f@(Forall x a :-> b) = case isAxiomSchema11And12 f of
       Just k  -> Just $ Step (Row n (AxiomSchema k)) f
       Nothing -> fmap (\(_, term) -> Error (NotFreeVariable n x term)) (checkSubstitutionCorrectness' a b x)
     axSch11And12 _ _                      = Nothing
-
-findMPReverse 
-  :: Integer 
-  -> PropFormula 
-  -> Map.Map PropFormula StepInformation 
-  -> Map.Map PropFormula [PropFormula] 
-  -> Maybe StepInformation
-findMPReverse n b buffer mpContainer = case mpContainer Map.!? b of
-  Nothing -> Nothing
-  Just list -> case find (\a -> Map.member a buffer && Map.member (a :-> b) buffer) (reverse list) of
-    Nothing -> Nothing
-    Just a -> let l = ((getPosition . getRow) (buffer Map.! a))
-                  r = ((getPosition . getRow) (buffer Map.! (a :-> b)))
-              in Just $ Step (Row n (ModusPonens l r)) b
 
 checkNonFreeOccurence :: PropFormula -> String -> Bool
 checkNonFreeOccurence (Forall x p) v = x == v || checkNonFreeOccurence p v
@@ -368,4 +382,4 @@ checkNonFreeOccurence (p := q)     v = mapFold (&&) True (flip checkNonFreeOccur
     checkNonFreeOccurence' :: PeanoFormula -> String -> Bool
     checkNonFreeOccurence' (PeanoVariable x) v = x /= v
     checkNonFreeOccurence' f                 v = mapFold (&&) True (flip checkNonFreeOccurence' v) . splitPeanoFormula $ f
-checkNonFreeOccurence _            _ = undefined
+checkNonFreeOccurence f            v = mapFold (&&) True (flip checkNonFreeOccurence v) . splitPropFormula $ f
