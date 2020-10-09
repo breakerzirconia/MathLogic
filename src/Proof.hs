@@ -276,10 +276,10 @@ replace a b x
     unionFoldX :: (String -> a -> b -> Maybe (Set.Set PeanoFormula)) -> [a] -> [b] -> Maybe (Set.Set PeanoFormula)
     unionFoldX f l1 l2 = foldl' (+:+) (Just Set.empty) $ zipWith (f x) l1 l2
 
-    quantifierChecker :: PropFormula -> PropFormula -> 
-                   PropFormula -> PropFormula -> 
-                   String -> String -> String -> 
-                   Maybe (Set.Set PeanoFormula)
+    quantifierChecker :: PropFormula -> PropFormula 
+                      -> PropFormula -> PropFormula 
+                      -> String -> String -> String 
+                      -> Maybe (Set.Set PeanoFormula)
     quantifierChecker a b ap bp ax bx x
         | x /= ax && ax == bx = replace ap bp x
         | x == ax && a == b   = Just Set.empty
@@ -290,38 +290,33 @@ infixl 5 +:+
 (Just x) +:+ (Just y) = Just $ Set.union x y
 _        +:+ _        = Nothing 
 
-analyze 
-  :: PropFormula  
-  -> [PropFormula]
-  -> [(Integer, PropFormula)] 
-  -> [StepInformation]
-analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty Map.empty
+analyze :: PropFormula -> [PropFormula] -> [(Integer, PropFormula)] -> [StepInformation]
+analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty
   where
     go :: PropFormula 
        -> [PropFormula]
        -> [(Integer, PropFormula)] 
        -> Map.Map PropFormula [(Integer, PropFormula)]
        -> Map.Map PropFormula Integer
-       -> Map.Map PropFormula StepInformation
        -> [StepInformation]
-    go given hypotheses [] mpContainer container buffer = []
-    go given hypotheses ((n, l):ls) mpContainer container buffer
+    go given hypotheses [] mpContainer container = []
+    go given hypotheses ((n, l):ls) mpContainer container
       = case hyp n l <|> axSch n l 
                      <|> axSch11And12 n l 
                      <|> axFA n l 
                      <|> ind n l 
-                     <|> mp n l mpContainer container buffer 
+                     <|> mp n l mpContainer container 
                      <|> intro n l container of
           Just si -> case si of 
             Step  _ _ -> if null ls
                          then if l == given
                               then si : go given hypotheses ls (case l of
                                 q :-> w -> Map.insertWith (++) w [(n, l)] mpContainer
-                                _       -> mpContainer) (Map.insert l n container) (Map.insert l si buffer)
+                                _       -> mpContainer) (Map.insert l n container)
                               else si : [Error DifferentProof]
                          else si : go given hypotheses ls (case l of
                            q :-> w -> Map.insertWith (flip (++)) w [(n, l)] mpContainer
-                           _       -> mpContainer) (Map.insert l n container) (Map.insert l si buffer)
+                           _       -> mpContainer) (Map.insert l n container)
             Error _   -> [si]
           Nothing -> [Error (NotProven n)]
 
@@ -336,17 +331,19 @@ analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty M
        -> PropFormula 
        -> Map.Map PropFormula [(Integer, PropFormula)]
        -> Map.Map PropFormula Integer
-       -> Map.Map PropFormula StepInformation
        -> Maybe StepInformation
-    mp n b mpContainer container buffer = case mpContainer Map.!? b of
+    mp n b mpContainer container = case mpContainer Map.!? b of
       Nothing   -> Nothing
-      Just list -> if null list
-                   then Nothing
-                   else case maximumBy (comparing fst) 
-                             . filter (\(_, (a :-> _)) -> Map.member a buffer && Map.member (a :-> b) buffer) 
-                             $ list of
-        (r, a :-> _) -> let l = (container Map.! a)
-                        in Just $ Step (Row n (ModusPonens l r)) b
+      Just list -> let list' = reverse
+                             . sortBy (comparing fst)
+                             . map (\(n, a :-> _) -> (container Map.! a, a))
+                             . filter (\(_, (a :-> _)) -> Map.member a container && Map.member (a :-> b) container) 
+                             $ list
+                   in if null list'
+                      then Nothing
+                      else let (l, a) = head list'
+                               r = container Map.! (a :-> b)
+                           in Just $ Step (Row n (ModusPonens l r)) b
 
     axFA :: Integer -> PropFormula -> Maybe StepInformation
     axFA n f = fmap (\i -> Step (Row n (AxiomFormalArithmetic i)) f) $ isAxiomFormalArithmetic f
@@ -357,13 +354,13 @@ analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty M
     intro :: Integer -> PropFormula -> Map.Map PropFormula Integer -> Maybe StepInformation
     intro n f@(Exists x b :-> a) container
       | Map.member (b :-> a) container = if checkNonFreeOccurence a x 
-                                      then Just $ Step (Row n (QIntro (container Map.! (b :-> a)))) f
-                                      else Just $ Error (FreeOccurence n x)
+                                         then Just $ Step (Row n (QIntro (container Map.! (b :-> a)))) f
+                                         else Just $ Error (FreeOccurence n x)
     intro n f@(a :-> Forall x b) container
       | Map.member (a :-> b) container = if checkNonFreeOccurence a x
-                                      then Just $ Step (Row n (QIntro (container Map.! (a :-> b)))) f
-                                      else Just $ Error (FreeOccurence n x)
-    intro _ _                    _      = Nothing
+                                         then Just $ Step (Row n (QIntro (container Map.! (a :-> b)))) f
+                                         else Just $ Error (FreeOccurence n x)
+    intro _ _                    _     = Nothing
     
     axSch11And12 :: Integer -> PropFormula -> Maybe StepInformation
     axSch11And12 n f@(b :-> Exists x a) = case isAxiomSchema11And12 f of

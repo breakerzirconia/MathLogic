@@ -74,9 +74,7 @@ string (x:xs) = do
 chain :: Parser a -> Parser s -> Parser [a]
 chain item separator = do
     i  <- item
-    is <- many (do
-        separator
-        item)
+    is <- many (separator >> item)
     return $ i:is
 
 leftAssociative :: (a -> a -> a) -> Parser a -> Parser s -> Parser a
