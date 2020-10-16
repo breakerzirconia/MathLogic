@@ -291,34 +291,31 @@ infixl 5 +:+
 _        +:+ _        = Nothing 
 
 analyze :: PropFormula -> [PropFormula] -> [(Integer, PropFormula)] -> [StepInformation]
-analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty
+analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty (toInteger (length proof))
   where
     go :: PropFormula 
        -> [PropFormula]
        -> [(Integer, PropFormula)] 
        -> Map.Map PropFormula [(Integer, PropFormula)]
        -> Map.Map PropFormula Integer
+       -> Integer
        -> [StepInformation]
-    go given hypotheses [] mpContainer container = []
-    go given hypotheses ((n, l):ls) mpContainer container
+
+    go given hypotheses [] mpContainer container len
+      = if container Map.!? given == Just len
+        then []
+        else [Error DifferentProof]
+    go given hypotheses ((n, l):ls) mpContainer container len
       = case hyp n l <|> axSch n l 
-                     <|> axSch11And12 n l 
+                     <|> axSch11And12 n l
                      <|> axFA n l 
                      <|> ind n l 
                      <|> mp n l mpContainer container 
                      <|> intro n l container of
-          Just si -> case si of 
-            Step  _ _ -> if null ls
-                         then if l == given
-                              then si : go given hypotheses ls (case l of
-                                q :-> w -> Map.insertWith (++) w [(n, l)] mpContainer
-                                _       -> mpContainer) (Map.insert l n container)
-                              else si : [Error DifferentProof]
-                         else si : go given hypotheses ls (case l of
-                           q :-> w -> Map.insertWith (flip (++)) w [(n, l)] mpContainer
-                           _       -> mpContainer) (Map.insert l n container)
-            Error _   -> [si]
-          Nothing -> [Error (NotProven n)]
+          Just si -> si : go given hypotheses ls (case l of
+              q :-> w -> Map.insertWith (flip (++)) w [(n, l)] mpContainer
+              _       -> mpContainer) (Map.insert l n container) len
+          Nothing -> [fromJust $ introError n l container <|> axiomError n l <|> Just (Error (NotProven n))]
 
     axSch :: Integer -> PropFormula -> Maybe StepInformation
     axSch n f = fmap (\i -> Step (Row n (AxiomSchema i)) f) $ isAxiomSchema f
@@ -353,23 +350,34 @@ analyze given hypotheses proof = go given hypotheses proof Map.empty Map.empty
 
     intro :: Integer -> PropFormula -> Map.Map PropFormula Integer -> Maybe StepInformation
     intro n f@(Exists x b :-> a) container
-      | Map.member (b :-> a) container = if checkNonFreeOccurence a x 
-                                         then Just $ Step (Row n (QIntro (container Map.! (b :-> a)))) f
-                                         else Just $ Error (FreeOccurence n x)
+      | Map.member (b :-> a) container && checkNonFreeOccurence a x 
+        = Just $ Step (Row n (QIntro (container Map.! (b :-> a)))) f
     intro n f@(a :-> Forall x b) container
-      | Map.member (a :-> b) container = if checkNonFreeOccurence a x
-                                         then Just $ Step (Row n (QIntro (container Map.! (a :-> b)))) f
-                                         else Just $ Error (FreeOccurence n x)
-    intro _ _                    _     = Nothing
+      | Map.member (a :-> b) container && checkNonFreeOccurence a x 
+        = Just $ Step (Row n (QIntro (container Map.! (a :-> b)))) f
+    intro _ _                    _         = Nothing
     
     axSch11And12 :: Integer -> PropFormula -> Maybe StepInformation
     axSch11And12 n f@(b :-> Exists x a) = case isAxiomSchema11And12 f of
       Just k  -> Just $ Step (Row n (AxiomSchema k)) f
-      Nothing -> fmap (\(_, term) -> Error (NotFreeVariable n x term)) (checkSubstitutionCorrectness' a b x)
+      Nothing -> Nothing
     axSch11And12 n f@(Forall x a :-> b) = case isAxiomSchema11And12 f of
       Just k  -> Just $ Step (Row n (AxiomSchema k)) f
-      Nothing -> fmap (\(_, term) -> Error (NotFreeVariable n x term)) (checkSubstitutionCorrectness' a b x)
-    axSch11And12 _ _                      = Nothing
+      Nothing -> Nothing
+    axSch11And12 _ _                    = Nothing
+
+    introError :: Integer -> PropFormula -> Map.Map PropFormula Integer -> Maybe StepInformation
+    introError n (Exists x b :-> a) container | Map.member (b :-> a) container = Just $ Error (FreeOccurence n x) 
+    introError n (a :-> Forall x b) container | Map.member (a :-> b) container = Just $ Error (FreeOccurence n x)
+    introError _ _                  _         = Nothing 
+
+    axiomError :: Integer -> PropFormula -> Maybe StepInformation
+    axiomError n f = fmap (\(x, term) -> Error (NotFreeVariable n x term)) $ axiomError' f checkSubstitutionCorrectness'
+    axiomError' f@(Forall x a :-> b) func = fmap (\(_, term) -> (x, term)) (func a b x) <|> case f of
+      (b :-> Exists x a) -> fmap (\(_, term) -> (x, term)) (func a b x)
+      _                                      -> Nothing
+    axiomError' (b :-> Exists x a)   func = fmap (\(_, term) -> (x, term)) (func a b x)
+    axiomError' _                    _    = Nothing
 
 checkNonFreeOccurence :: PropFormula -> String -> Bool
 checkNonFreeOccurence (Forall x p) v = x == v || checkNonFreeOccurence p v
